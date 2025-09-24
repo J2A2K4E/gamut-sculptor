@@ -1,0 +1,702 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>The Gamut Sculptor: Perceptual Fractal Forge</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+        
+        * {
+            font-family: 'Inter', sans-serif;
+        }
+        
+        .fractal-canvas {
+            background: radial-gradient(circle at center, #0a0a0a 0%, #000 100%);
+            cursor: crosshair;
+        }
+        
+        .color-control {
+            background: linear-gradient(135deg, rgba(255,255,255,0.1) 0%, rgba(255,255,255,0.05) 100%);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255,255,255,0.1);
+        }
+        
+        .gamut-indicator {
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        
+        .gamut-indicator.active {
+            transform: scale(1.1);
+            box-shadow: 0 0 20px rgba(93, 92, 222, 0.5);
+        }
+        
+        .out-of-gamut {
+            animation: shimmer 2s ease-in-out infinite;
+        }
+        
+        @keyframes shimmer {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.7; }
+        }
+        
+        .audio-visualizer {
+            background: linear-gradient(90deg, #5D5CDE, #7C3AED, #EC4899);
+            height: 4px;
+            transform-origin: left;
+            transition: transform 0.1s ease;
+        }
+        
+        .fractal-info {
+            font-family: 'Courier New', monospace;
+            font-size: 0.75rem;
+            opacity: 0.8;
+        }
+    </style>
+</head>
+<body class="bg-gray-900 text-white overflow-hidden">
+    <!-- Main Container -->
+    <div class="flex h-screen">
+        <!-- Fractal Canvas Area -->
+        <div class="flex-1 relative">
+            <canvas id="fractalCanvas" class="fractal-canvas w-full h-full"></canvas>
+            
+            <!-- Overlay Controls -->
+            <div class="absolute top-4 left-4 right-4 flex justify-between items-start pointer-events-none">
+                <!-- Title -->
+                <div class="color-control rounded-lg p-4 pointer-events-auto">
+                    <h1 class="text-xl font-bold text-white mb-1">The Gamut Sculptor</h1>
+                    <p class="text-sm text-gray-300">Perceptual Fractal Forge</p>
+                </div>
+                
+                <!-- Gamut Indicators -->
+                <div class="flex space-x-2 pointer-events-auto">
+                    <button id="srgb-btn" class="gamut-indicator active bg-red-600 text-white px-3 py-2 rounded text-sm font-medium">
+                        sRGB
+                    </button>
+                    <button id="p3-btn" class="gamut-indicator bg-green-600 text-white px-3 py-2 rounded text-sm font-medium">
+                        Display P3
+                    </button>
+                    <button id="rec2020-btn" class="gamut-indicator bg-blue-600 text-white px-3 py-2 rounded text-sm font-medium">
+                        Rec2020
+                    </button>
+                </div>
+            </div>
+            
+            <!-- Audio Visualizer -->
+            <div class="absolute bottom-4 left-4 right-4 pointer-events-none">
+                <div class="audio-visualizer" id="audioVisualizer"></div>
+            </div>
+            
+            <!-- Fractal Info -->
+            <div class="absolute bottom-4 left-4 fractal-info text-white pointer-events-none">
+                <div id="fractalInfo">Mandelbrot Set | Iterations: 100 | Zoom: 1.0x</div>
+            </div>
+        </div>
+        
+        <!-- Control Panel -->
+        <div class="w-80 bg-gray-800 border-l border-gray-700 overflow-y-auto">
+            <div class="p-6">
+                <!-- Voice Control Status -->
+                <div class="mb-6">
+                    <button id="voiceBtn" class="w-full bg-purple-600 hover:bg-purple-700 text-white font-medium py-3 px-4 rounded-lg flex items-center justify-center space-x-2 transition-colors">
+                        <span>🎤</span>
+                        <span id="voiceStatus">Enable Voice Control</span>
+                    </button>
+                    <p class="text-xs text-gray-400 mt-2">Say "Switch to P3" or "Change to Rec2020"</p>
+                </div>
+                
+                <!-- Color Space Controls -->
+                <div class="space-y-6">
+                    <!-- OKLCH Controls -->
+                    <div class="color-control rounded-lg p-4">
+                        <h3 class="text-lg font-semibold mb-4 text-white">OKLCH Color Space</h3>
+                        
+                        <div class="space-y-4">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-300 mb-2">Lightness</label>
+                                <input type="range" id="oklch-l" min="0" max="1" step="0.01" value="0.7" 
+                                       class="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer">
+                                <span id="oklch-l-val" class="text-xs text-gray-400">0.70</span>
+                            </div>
+                            
+                            <div>
+                                <label class="block text-sm font-medium text-gray-300 mb-2">Chroma</label>
+                                <input type="range" id="oklch-c" min="0" max="0.37" step="0.01" value="0.15" 
+                                       class="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer">
+                                <span id="oklch-c-val" class="text-xs text-gray-400">0.15</span>
+                            </div>
+                            
+                            <div>
+                                <label class="block text-sm font-medium text-gray-300 mb-2">Hue</label>
+                                <input type="range" id="oklch-h" min="0" max="360" step="1" value="250" 
+                                       class="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer">
+                                <span id="oklch-h-val" class="text-xs text-gray-400">250°</span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- LAB Controls -->
+                    <div class="color-control rounded-lg p-4">
+                        <h3 class="text-lg font-semibold mb-4 text-white">LAB Color Space</h3>
+                        
+                        <div class="space-y-4">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-300 mb-2">L* (Lightness)</label>
+                                <input type="range" id="lab-l" min="0" max="100" step="1" value="70" 
+                                       class="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer">
+                                <span id="lab-l-val" class="text-xs text-gray-400">70</span>
+                            </div>
+                            
+                            <div>
+                                <label class="block text-sm font-medium text-gray-300 mb-2">a* (Green-Red)</label>
+                                <input type="range" id="lab-a" min="-128" max="127" step="1" value="0" 
+                                       class="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer">
+                                <span id="lab-a-val" class="text-xs text-gray-400">0</span>
+                            </div>
+                            
+                            <div>
+                                <label class="block text-sm font-medium text-gray-300 mb-2">b* (Blue-Yellow)</label>
+                                <input type="range" id="lab-b" min="-128" max="127" step="1" value="0" 
+                                       class="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer">
+                                <span id="lab-b-val" class="text-xs text-gray-400">0</span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Fractal Parameters -->
+                    <div class="color-control rounded-lg p-4">
+                        <h3 class="text-lg font-semibold mb-4 text-white">Fractal Parameters</h3>
+                        
+                        <div class="space-y-4">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-300 mb-2">Iterations</label>
+                                <input type="range" id="iterations" min="50" max="200" step="10" value="100" 
+                                       class="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer">
+                                <span id="iterations-val" class="text-xs text-gray-400">100</span>
+                            </div>
+                            
+                            <div>
+                                <label class="block text-sm font-medium text-gray-300 mb-2">Color Intensity</label>
+                                <input type="range" id="intensity" min="0.1" max="3.0" step="0.1" value="1.0" 
+                                       class="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer">
+                                <span id="intensity-val" class="text-xs text-gray-400">1.0</span>
+                            </div>
+                            
+                            <div>
+                                <label class="block text-sm font-medium text-gray-300 mb-2">Noise Scale</label>
+                                <input type="range" id="noise-scale" min="0.1" max="5.0" step="0.1" value="1.0" 
+                                       class="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer">
+                                <span id="noise-scale-val" class="text-xs text-gray-400">1.0</span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Gamut Clipping Warning -->
+                    <div id="gamut-warning" class="color-control rounded-lg p-4 border-yellow-500 bg-yellow-500/10 hidden">
+                        <h4 class="text-yellow-400 font-semibold mb-2">⚠️ Out of Gamut</h4>
+                        <p class="text-sm text-yellow-300">Some colors are outside the current display gamut and may appear clipped.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Dark mode support
+        if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+            document.documentElement.classList.add('dark');
+        }
+        window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', event => {
+            if (event.matches) {
+                document.documentElement.classList.add('dark');
+            } else {
+                document.documentElement.classList.remove('dark');
+            }
+        });
+
+        // Canvas setup
+        const canvas = document.getElementById('fractalCanvas');
+        const ctx = canvas.getContext('2d');
+        let animationId;
+        
+        // Audio context for feedback
+        let audioContext;
+        let oscillator;
+        let gainNode;
+        let isAudioInitialized = false;
+        
+        // Fractal state
+        let fractalState = {
+            zoom: 1.0,
+            centerX: -0.5,
+            centerY: 0,
+            iterations: 100,
+            colorIntensity: 1.0,
+            noiseScale: 1.0,
+            currentGamut: 'srgb',
+            oklch: { l: 0.7, c: 0.15, h: 250 },
+            lab: { l: 70, a: 0, b: 0 }
+        };
+        
+        // Voice recognition
+        let recognition;
+        let isListening = false;
+
+        function initAudio() {
+            if (isAudioInitialized) return;
+            
+            try {
+                audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                gainNode = audioContext.createGain();
+                gainNode.connect(audioContext.destination);
+                gainNode.gain.value = 0.1;
+                isAudioInitialized = true;
+            } catch (error) {
+                console.log('Audio not available:', error);
+            }
+        }
+
+        function playTone(frequency, duration = 100) {
+            if (!isAudioInitialized) return;
+            
+            try {
+                const osc = audioContext.createOscillator();
+                const tempGain = audioContext.createGain();
+                
+                osc.connect(tempGain);
+                tempGain.connect(audioContext.destination);
+                
+                osc.frequency.value = frequency;
+                osc.type = 'sine';
+                tempGain.gain.value = 0.05;
+                
+                osc.start();
+                osc.stop(audioContext.currentTime + duration / 1000);
+            } catch (error) {
+                console.log('Audio playback error:', error);
+            }
+        }
+
+        function initVoiceRecognition() {
+            if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {
+                document.getElementById('voiceStatus').textContent = 'Voice not supported';
+                return;
+            }
+
+            const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+            recognition = new SpeechRecognition();
+            recognition.continuous = true;
+            recognition.interimResults = false;
+            recognition.lang = 'en-US';
+
+            recognition.onresult = function(event) {
+                const command = event.results[event.results.length - 1][0].transcript.toLowerCase().trim();
+                console.log('Voice command:', command);
+                
+                if (command.includes('srgb') || command.includes('s rgb')) {
+                    switchGamut('srgb');
+                } else if (command.includes('p3') || command.includes('display p3')) {
+                    switchGamut('p3');
+                } else if (command.includes('rec2020') || command.includes('rec 2020')) {
+                    switchGamut('rec2020');
+                }
+                
+                playTone(800, 150);
+            };
+
+            recognition.onerror = function(event) {
+                console.log('Speech recognition error:', event.error);
+            };
+        }
+
+        function toggleVoice() {
+            if (!recognition) {
+                initVoiceRecognition();
+                if (!recognition) return;
+            }
+
+            if (!isListening) {
+                initAudio();
+                recognition.start();
+                isListening = true;
+                document.getElementById('voiceStatus').textContent = 'Listening...';
+                document.getElementById('voiceBtn').classList.add('bg-red-600');
+            } else {
+                recognition.stop();
+                isListening = false;
+                document.getElementById('voiceStatus').textContent = 'Enable Voice Control';
+                document.getElementById('voiceBtn').classList.remove('bg-red-600');
+            }
+        }
+
+        // Color space conversion functions
+        function oklchToRgb(l, c, h) {
+            // Simplified OKLCH to RGB conversion
+            const hRad = (h * Math.PI) / 180;
+            const a = c * Math.cos(hRad);
+            const b = c * Math.sin(hRad);
+            
+            // Convert to linear RGB (simplified)
+            let r = l + 0.3963377774 * a + 0.2158037573 * b;
+            let g = l - 0.1055613458 * a - 0.0638541728 * b;
+            let bl = l - 0.0894841775 * a - 1.2914855480 * b;
+            
+            // Gamma correction
+            r = Math.pow(Math.max(0, r), 2.2);
+            g = Math.pow(Math.max(0, g), 2.2);
+            bl = Math.pow(Math.max(0, bl), 2.2);
+            
+            return [
+                Math.max(0, Math.min(255, r * 255)),
+                Math.max(0, Math.min(255, g * 255)),
+                Math.max(0, Math.min(255, bl * 255))
+            ];
+        }
+
+        function labToRgb(l, a, b) {
+            // Simplified LAB to RGB conversion
+            const fy = (l + 16) / 116;
+            const fx = a / 500 + fy;
+            const fz = fy - b / 200;
+            
+            let x = fx > 0.206897 ? Math.pow(fx, 3) : (fx - 16/116) / 7.787;
+            let y = fy > 0.206897 ? Math.pow(fy, 3) : (fy - 16/116) / 7.787;
+            let z = fz > 0.206897 ? Math.pow(fz, 3) : (fz - 16/116) / 7.787;
+            
+            x *= 95.047;
+            y *= 100.000;
+            z *= 108.883;
+            
+            // Convert XYZ to RGB
+            let r = x *  3.2406 + y * -1.5372 + z * -0.4986;
+            let g = x * -0.9689 + y *  1.8758 + z *  0.0415;
+            let bl = x *  0.0557 + y * -0.2040 + z *  1.0570;
+            
+            r = r > 0.0031308 ? 1.055 * Math.pow(r, 1/2.4) - 0.055 : 12.92 * r;
+            g = g > 0.0031308 ? 1.055 * Math.pow(g, 1/2.4) - 0.055 : 12.92 * g;
+            bl = bl > 0.0031308 ? 1.055 * Math.pow(bl, 1/2.4) - 0.055 : 12.92 * bl;
+            
+            return [
+                Math.max(0, Math.min(255, r * 255)),
+                Math.max(0, Math.min(255, g * 255)),
+                Math.max(0, Math.min(255, bl * 255))
+            ];
+        }
+
+        function isOutOfGamut(rgb, gamut) {
+            const [r, g, b] = rgb;
+            
+            // Simple gamut checking based on RGB values
+            switch (gamut) {
+                case 'srgb':
+                    return r < 0 || r > 255 || g < 0 || g > 255 || b < 0 || b > 255;
+                case 'p3':
+                    // Display P3 has wider gamut, less likely to clip
+                    return r < -20 || r > 275 || g < -20 || g > 275 || b < -20 || b > 275;
+                case 'rec2020':
+                    // Rec2020 has even wider gamut
+                    return r < -50 || r > 305 || g < -50 || g > 305 || b < -50 || b > 305;
+                default:
+                    return false;
+            }
+        }
+
+        function mandelbrot(x, y, maxIter) {
+            let zx = 0, zy = 0;
+            let iter = 0;
+            
+            while (zx * zx + zy * zy < 4 && iter < maxIter) {
+                let tmp = zx * zx - zy * zy + x;
+                zy = 2 * zx * zy + y;
+                zx = tmp;
+                iter++;
+            }
+            
+            return iter;
+        }
+
+        function noise(x, y, scale) {
+            // Simple Perlin-like noise
+            const freq = scale * 0.1;
+            return (Math.sin(x * freq) * Math.cos(y * freq) + 1) / 2;
+        }
+
+        function resizeCanvas() {
+            canvas.width = canvas.offsetWidth;
+            canvas.height = canvas.offsetHeight;
+        }
+
+        function render() {
+            const width = canvas.width;
+            const height = canvas.height;
+            const imageData = ctx.createImageData(width, height);
+            const data = imageData.data;
+            
+            const minDim = Math.min(width, height);
+            const scale = 4 / (minDim * fractalState.zoom);
+            
+            for (let py = 0; py < height; py++) {
+                for (let px = 0; px < width; px++) {
+                    const x = (px - width / 2) * scale + fractalState.centerX;
+                    const y = (py - height / 2) * scale + fractalState.centerY;
+                    
+                    const iter = mandelbrot(x, y, fractalState.iterations);
+                    const noiseVal = noise(px, py, fractalState.noiseScale);
+                    
+                    let rgb;
+                    if (iter === fractalState.iterations) {
+                        rgb = [0, 0, 0]; // Inside the set
+                    } else {
+                        // Color based on current color space
+                        const t = (iter + noiseVal) / fractalState.iterations;
+                        const intensity = fractalState.colorIntensity;
+                        
+                        // Use OKLCH values with iteration-based modulation
+                        const l = fractalState.oklch.l * (0.5 + 0.5 * t);
+                        const c = fractalState.oklch.c * intensity * (0.5 + 0.5 * Math.sin(t * 6.28));
+                        const h = (fractalState.oklch.h + t * 360) % 360;
+                        
+                        rgb = oklchToRgb(l, c, h);
+                    }
+                    
+                    const idx = (py * width + px) * 4;
+                    data[idx] = rgb[0];     // Red
+                    data[idx + 1] = rgb[1]; // Green
+                    data[idx + 2] = rgb[2]; // Blue
+                    data[idx + 3] = 255;    // Alpha
+                }
+            }
+            
+            ctx.putImageData(imageData, 0, 0);
+            updateGamutWarning();
+        }
+
+        function updateGamutWarning() {
+            const testRgb = oklchToRgb(fractalState.oklch.l, fractalState.oklch.c, fractalState.oklch.h);
+            const outOfGamut = isOutOfGamut(testRgb, fractalState.currentGamut);
+            
+            const warning = document.getElementById('gamut-warning');
+            if (outOfGamut) {
+                warning.classList.remove('hidden');
+                warning.classList.add('out-of-gamut');
+            } else {
+                warning.classList.add('hidden');
+                warning.classList.remove('out-of-gamut');
+            }
+        }
+
+        function switchGamut(gamut) {
+            // Update active button
+            document.querySelectorAll('.gamut-indicator').forEach(btn => {
+                btn.classList.remove('active');
+            });
+            
+            const btnId = gamut === 'srgb' ? 'srgb-btn' : 
+                         gamut === 'p3' ? 'p3-btn' : 'rec2020-btn';
+            document.getElementById(btnId).classList.add('active');
+            
+            fractalState.currentGamut = gamut;
+            
+            // Apply gamut-specific styling
+            const body = document.body;
+            body.style.filter = gamut === 'p3' ? 'saturate(1.2)' : 
+                               gamut === 'rec2020' ? 'saturate(1.4) contrast(1.1)' : 'none';
+            
+            render();
+            playTone(440 + (gamut === 'p3' ? 100 : gamut === 'rec2020' ? 200 : 0), 200);
+        }
+
+        function updateAudioVisualizer() {
+            const visualizer = document.getElementById('audioVisualizer');
+            const intensity = fractalState.colorIntensity;
+            const chroma = fractalState.oklch.c;
+            
+            const scale = Math.min(1, intensity * chroma * 10);
+            visualizer.style.transform = `scaleX(${scale})`;
+        }
+
+        function setupControls() {
+            // OKLCH controls
+            const oklchL = document.getElementById('oklch-l');
+            const oklchC = document.getElementById('oklch-c');
+            const oklchH = document.getElementById('oklch-h');
+            
+            oklchL.addEventListener('input', (e) => {
+                fractalState.oklch.l = parseFloat(e.target.value);
+                document.getElementById('oklch-l-val').textContent = e.target.value;
+                render();
+                playTone(200 + fractalState.oklch.l * 400, 50);
+                updateAudioVisualizer();
+            });
+            
+            oklchC.addEventListener('input', (e) => {
+                fractalState.oklch.c = parseFloat(e.target.value);
+                document.getElementById('oklch-c-val').textContent = e.target.value;
+                render();
+                playTone(300 + fractalState.oklch.c * 1000, 50);
+                updateAudioVisualizer();
+            });
+            
+            oklchH.addEventListener('input', (e) => {
+                fractalState.oklch.h = parseFloat(e.target.value);
+                document.getElementById('oklch-h-val').textContent = e.target.value + '°';
+                render();
+                playTone(400 + (fractalState.oklch.h / 360) * 400, 50);
+                updateAudioVisualizer();
+            });
+            
+            // LAB controls
+            const labL = document.getElementById('lab-l');
+            const labA = document.getElementById('lab-a');
+            const labB = document.getElementById('lab-b');
+            
+            [labL, labA, labB].forEach((control, index) => {
+                control.addEventListener('input', (e) => {
+                    const value = parseFloat(e.target.value);
+                    const property = ['l', 'a', 'b'][index];
+                    fractalState.lab[property] = value;
+                    document.getElementById(`lab-${property}-val`).textContent = value;
+                    
+                    // Convert LAB to OKLCH for rendering
+                    const rgb = labToRgb(fractalState.lab.l, fractalState.lab.a, fractalState.lab.b);
+                    render();
+                    playTone(200 + (value + 128) * 2, 50);
+                });
+            });
+            
+            // Fractal parameters
+            const iterations = document.getElementById('iterations');
+            const intensity = document.getElementById('intensity');
+            const noiseScale = document.getElementById('noise-scale');
+            
+            iterations.addEventListener('input', (e) => {
+                fractalState.iterations = parseInt(e.target.value);
+                document.getElementById('iterations-val').textContent = e.target.value;
+                document.getElementById('fractalInfo').textContent = 
+                    `Mandelbrot Set | Iterations: ${fractalState.iterations} | Zoom: ${fractalState.zoom.toFixed(1)}x`;
+                render();
+            });
+            
+            intensity.addEventListener('input', (e) => {
+                fractalState.colorIntensity = parseFloat(e.target.value);
+                document.getElementById('intensity-val').textContent = e.target.value;
+                render();
+                updateAudioVisualizer();
+            });
+            
+            noiseScale.addEventListener('input', (e) => {
+                fractalState.noiseScale = parseFloat(e.target.value);
+                document.getElementById('noise-scale-val').textContent = e.target.value;
+                render();
+            });
+            
+            // Gamut buttons
+            document.getElementById('srgb-btn').addEventListener('click', () => switchGamut('srgb'));
+            document.getElementById('p3-btn').addEventListener('click', () => switchGamut('p3'));
+            document.getElementById('rec2020-btn').addEventListener('click', () => switchGamut('rec2020'));
+            
+            // Voice control
+            document.getElementById('voiceBtn').addEventListener('click', toggleVoice);
+        }
+
+        function setupCanvasInteraction() {
+            let isDragging = false;
+            let lastX, lastY;
+            
+            canvas.addEventListener('mousedown', (e) => {
+                isDragging = true;
+                lastX = e.clientX;
+                lastY = e.clientY;
+                initAudio();
+            });
+            
+            canvas.addEventListener('mousemove', (e) => {
+                if (!isDragging) return;
+                
+                const deltaX = e.clientX - lastX;
+                const deltaY = e.clientY - lastY;
+                
+                const scale = 4 / (Math.min(canvas.width, canvas.height) * fractalState.zoom);
+                fractalState.centerX -= deltaX * scale;
+                fractalState.centerY -= deltaY * scale;
+                
+                lastX = e.clientX;
+                lastY = e.clientY;
+                
+                render();
+            });
+            
+            canvas.addEventListener('mouseup', () => {
+                isDragging = false;
+            });
+            
+            canvas.addEventListener('wheel', (e) => {
+                e.preventDefault();
+                const zoomFactor = e.deltaY > 0 ? 0.9 : 1.1;
+                fractalState.zoom *= zoomFactor;
+                
+                document.getElementById('fractalInfo').textContent = 
+                    `Mandelbrot Set | Iterations: ${fractalState.iterations} | Zoom: ${fractalState.zoom.toFixed(1)}x`;
+                
+                render();
+                playTone(300 + Math.log(fractalState.zoom) * 100, 100);
+            });
+            
+            // Touch support
+            canvas.addEventListener('touchstart', (e) => {
+                e.preventDefault();
+                const touch = e.touches[0];
+                isDragging = true;
+                lastX = touch.clientX;
+                lastY = touch.clientY;
+                initAudio();
+            });
+            
+            canvas.addEventListener('touchmove', (e) => {
+                e.preventDefault();
+                if (!isDragging) return;
+                
+                const touch = e.touches[0];
+                const deltaX = touch.clientX - lastX;
+                const deltaY = touch.clientY - lastY;
+                
+                const scale = 4 / (Math.min(canvas.width, canvas.height) * fractalState.zoom);
+                fractalState.centerX -= deltaX * scale;
+                fractalState.centerY -= deltaY * scale;
+                
+                lastX = touch.clientX;
+                lastY = touch.clientY;
+                
+                render();
+            });
+            
+            canvas.addEventListener('touchend', () => {
+                isDragging = false;
+            });
+        }
+
+        // Initialize the application
+        function init() {
+            resizeCanvas();
+            setupControls();
+            setupCanvasInteraction();
+            initVoiceRecognition();
+            
+            // Initial render
+            render();
+            updateAudioVisualizer();
+            
+            // Handle window resize
+            window.addEventListener('resize', () => {
+                resizeCanvas();
+                render();
+            });
+        }
+
+        // Start the application
+        init();
+    </script>
+</body>
+</html>
